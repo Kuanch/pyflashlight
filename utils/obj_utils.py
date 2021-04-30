@@ -38,8 +38,8 @@ def cxcy_to_gcxgcy(cxcy, priors_cxcy):
     # The 10 and 5 below are referred to as 'variances' in the original Caffe repo, completely empirical
     # They are for some sort of numerical conditioning, for 'scaling the localization gradient'
     # See https://github.com/weiliu89/caffe/issues/155
-    return torch.cat([(cxcy[:, :2] - priors_cxcy[:, :2]) / (priors_cxcy[:, 2:] / 10),  # g_c_x, g_c_y
-                      torch.log(cxcy[:, 2:] / priors_cxcy[:, 2:]) * 5], 1).to(device)  # g_w, g_h
+    return torch.cat([(cxcy[:, :2].to('cuda')- priors_cxcy[:, :2]).to('cuda')  / (priors_cxcy[:, 2:].to('cuda') / 10),  # g_c_x, g_c_y
+                      torch.log(cxcy[:, 2:].to('cuda') / priors_cxcy[:, 2:].to('cuda')) * 5], 1).to(device)  # g_w, g_h
 
 
 def gcxgcy_to_cxcy(gcxgcy, priors_cxcy):
@@ -66,8 +66,8 @@ def find_intersection(set_1, set_2):
     """
 
     # PyTorch auto-broadcasts singleton dimensions
-    lower_bounds = torch.max(set_1[:, :2].unsqueeze(1), set_2[:, :2].unsqueeze(0))  # (n1, n2, 2)
-    upper_bounds = torch.min(set_1[:, 2:].unsqueeze(1), set_2[:, 2:].unsqueeze(0))  # (n1, n2, 2)
+    lower_bounds = torch.max(set_1[:, :2].unsqueeze(1).to('cuda'), set_2[:, :2].unsqueeze(0).to('cuda'))  # (n1, n2, 2)
+    upper_bounds = torch.min(set_1[:, 2:].unsqueeze(1).to('cuda'), set_2[:, 2:].unsqueeze(0).to('cuda'))  # (n1, n2, 2)
     intersection_dims = torch.clamp(upper_bounds - lower_bounds, min=0)  # (n1, n2, 2)
     return (intersection_dims[:, :, 0] * intersection_dims[:, :, 1])  # (n1, n2)
 
@@ -81,7 +81,7 @@ def find_jaccard_overlap(set_1, set_2):
     """
 
     # Find intersections
-    intersection = find_intersection(set_1, set_2)  # (n1, n2)
+    intersection = find_intersection(set_1, set_2).to('cuda')  # (n1, n2)
 
     # Find areas of each box in both sets
     areas_set_1 = (set_1[:, 2] - set_1[:, 0]) * (set_1[:, 3] - set_1[:, 1])  # (n1)
@@ -89,6 +89,6 @@ def find_jaccard_overlap(set_1, set_2):
 
     # Find the union
     # PyTorch auto-broadcasts singleton dimensions
-    union = areas_set_1.unsqueeze(1) + areas_set_2.unsqueeze(0) - intersection  # (n1, n2)
+    union = areas_set_1.unsqueeze(1).to('cuda') + areas_set_2.unsqueeze(0).to('cuda') - intersection.to('cuda')  # (n1, n2)
 
     return intersection / union  # (n1, n2)
