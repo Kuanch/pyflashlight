@@ -7,9 +7,8 @@ def xy_to_cxcy(xy):
     :param xy: bounding boxes in boundary coordinates, a tensor of size (n_boxes, 4)
     :return: bounding boxes in center-size coordinates, a tensor of size (n_boxes, 4)
     """
-    device = xy.device
     return torch.cat([(xy[:, 2:] + xy[:, :2]) / 2,  # c_x, c_y
-                      xy[:, 2:] - xy[:, :2]], 1).to(device)  # w, h
+                      xy[:, 2:] - xy[:, :2]], 1)  # w, h
 
 
 def cxcy_to_xy(cxcy):
@@ -18,9 +17,8 @@ def cxcy_to_xy(cxcy):
     :param cxcy: bounding boxes in center-size coordinates, a tensor of size (n_boxes, 4)
     :return: bounding boxes in boundary coordinates, a tensor of size (n_boxes, 4)
     """
-    device = cxcy.device
     return torch.cat([cxcy[:, :2] - (cxcy[:, 2:] / 2),  # x_min, y_min
-                      cxcy[:, :2] + (cxcy[:, 2:] / 2)], 1).to(device)  # x_max, y_max
+                      cxcy[:, :2] + (cxcy[:, 2:] / 2)], 1)  # x_max, y_max
 
 
 def cxcy_to_gcxgcy(cxcy, priors_cxcy):
@@ -34,12 +32,11 @@ def cxcy_to_gcxgcy(cxcy, priors_cxcy):
     :return: encoded bounding boxes, a tensor of size (n_priors, 4)
     """
 
-    device = cxcy.device
     # The 10 and 5 below are referred to as 'variances' in the original Caffe repo, completely empirical
     # They are for some sort of numerical conditioning, for 'scaling the localization gradient'
     # See https://github.com/weiliu89/caffe/issues/155
     return torch.cat([(cxcy[:, :2].to('cuda')- priors_cxcy[:, :2]).to('cuda')  / (priors_cxcy[:, 2:].to('cuda') / 10),  # g_c_x, g_c_y
-                      torch.log(cxcy[:, 2:].to('cuda') / priors_cxcy[:, 2:].to('cuda')) * 5], 1).to(device)  # g_w, g_h
+                      torch.log(cxcy[:, 2:].to('cuda') / priors_cxcy[:, 2:].to('cuda')) * 5], 1)  # g_w, g_h
 
 
 def gcxgcy_to_cxcy(gcxgcy, priors_cxcy):
@@ -51,10 +48,8 @@ def gcxgcy_to_cxcy(gcxgcy, priors_cxcy):
     :param priors_cxcy: prior boxes with respect to which the encoding is defined, a tensor of size (n_priors, 4)
     :return: decoded bounding boxes in center-size form, a tensor of size (n_priors, 4)
     """
-
-    device = gcxgcy.device
     return torch.cat([gcxgcy[:, :2] * priors_cxcy[:, 2:] / 10 + priors_cxcy[:, :2],  # c_x, c_y
-                      torch.exp(gcxgcy[:, 2:] / 5) * priors_cxcy[:, 2:]], 1).to(device)  # w, h
+                      torch.exp(gcxgcy[:, 2:] / 5) * priors_cxcy[:, 2:]], 1)  # w, h
 
 
 def find_intersection(set_1, set_2):
