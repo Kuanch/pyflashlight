@@ -1,3 +1,4 @@
+import os
 import argparse
 
 import torch
@@ -11,7 +12,7 @@ from net.ssd import MultiBoxLoss
 from dataset.obj_dataloader import ObjTorchLoader
 
 
-DEVICE = 'cuda:0'
+DEVICE = None
 
 
 def collate_fn_coco(batch):
@@ -123,7 +124,7 @@ def get_argments():
     parser.add_argument('--dataset_name', default='coco')
     parser.add_argument('--num_classes', type=int, default=91)
     parser.add_argument('--dataset_path', default=None)
-    parser.add_argument('--training_epoch', type=int, default=2)
+    parser.add_argument('--training_epoch', type=int, default=1)
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--train_batch_size', type=int, default=16)
     parser.add_argument('--test_batch_size', type=int, default=16)
@@ -139,6 +140,8 @@ def train(args):
 
 if __name__ == '__main__':
     args = get_argments()
+    DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
     torch.backends.cudnn.benchmark = True
     train(args)
 
