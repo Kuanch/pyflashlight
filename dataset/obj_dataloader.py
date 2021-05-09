@@ -12,16 +12,22 @@ class ObjTorchLoader(object):
                  train_batch_size=16,
                  test_batch_size=8,
                  data_path=None):
-        if transform is None:
-            transform = transforms.Compose([transforms.ToTensor(),
-                                            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-
         if dataset_name == 'coco':
+            if transform is None:
+                transform = transforms.Compose([transforms.ToTensor(),
+                                                transforms.Normalize((0.471, 0.448, 0.408),
+                                                                     (0.234, 0.239, 0.242))])
             self.train_loader, self.test_loader = self.__get_coco(transform,
                                                                   train_batch_size,
                                                                   test_batch_size,
                                                                   collate_fn)
         elif hasattr(torchvision.datasets, dataset_name):
+            if transform is None:
+                # ImageNet mean and std
+                transform = transforms.Compose([transforms.ToTensor(),
+                                                transforms.Normalize((0.485, 0.456, 0.406),
+                                                                     (0.229, 0.224, 0.225))])
+
             train_set = getattr(torchvision.datasets, dataset_name)(root='./data',
                                                                     train=True,
                                                                     download=True,
