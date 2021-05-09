@@ -14,30 +14,6 @@ from dataset.obj_dataloader import ObjTorchLoader
 
 DEVICE = None
 
-
-def collate_fn_coco(batch):
-    images, annos = tuple(zip(*batch))
-    t_images = torch.empty((0, 3, 300, 300))
-    b_bboxes = []
-    b_labels = []
-    for i, image in enumerate(images):
-        labels = []
-        bboxes = []
-        r_width = 1 / image.shape[0]
-        r_height = 1 / image.shape[1]
-        t_image = torch.unsqueeze(image, dim=0)
-        t_images = torch.cat((t_images, t_image))
-        for anno in annos[i]:
-            bbox = [anno['bbox'][0] * r_width, anno['bbox'][1] * r_height,
-                    (anno['bbox'][0] + anno['bbox'][2]) * r_width, (anno['bbox'][1] + anno['bbox'][3]) * r_height]
-            bboxes.append(bbox)
-            labels.append(anno['category_id'])
-        b_bboxes.append(torch.as_tensor(bboxes))
-        b_labels.append(torch.as_tensor(labels))
-
-    return t_images, b_bboxes, b_labels
-
-
 def train_for_one_step(model, criterion,
                        optimizer, loss_container,
                        inputs, boxes, labels):
@@ -49,10 +25,10 @@ def train_for_one_step(model, criterion,
     # forward + backward + optimize
     pred_locs, pred_cls_prob = model(inputs.to(DEVICE))
 
-    for b in range(len(boxes)):
-        boxes[b].to(DEVICE)
-        labels[b].to(DEVICE)
-
+    num_obj = len(boxes)
+    for n in range(num_obj):
+        boxes[n] = boxes[n].to(DEVICE)
+        labels[n] = labels[n].to(DEVICE)
     loss = criterion(pred_locs.to(DEVICE), pred_cls_prob.to(DEVICE),
                      boxes, labels)
     loss.backward()
@@ -102,13 +78,12 @@ def training_setup(args):
                                                          transforms.ToTensor(),
                                                          transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                                                               std=[0.229, 0.224, 0.225])])
-    collate_fn = collate_fn_coco
     training_setup['dataset'] = ObjTorchLoader(args.dataset_name,
                                                transform=training_setup['preprocessor'],
-                                               collate_fn=collate_fn,
+                                               collate_fn_name=args.dataset_name,
                                                train_batch_size=args.train_batch_size,
                                                test_batch_size=args.test_batch_size)
-    prior_boxes = training_setup['model'].priors_cxcy.to(DEVICE)
+    prior_boxes = training_setup['model'].priors_cxcy
     training_setup['criterion'] = MultiBoxLoss(prior_boxes)
     training_setup['optimizer'] = optim.SGD(training_setup['model'].parameters(),
                                             lr=args.lr)
@@ -143,5 +118,8 @@ if __name__ == '__main__':
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
     os.environ['CUDA_VISIBLE_DEVICES'] = '0'
     torch.backends.cudnn.benchmark = True
+    import time
+    st = time.time()
     train(args)
+    print(time.time() - st)
 

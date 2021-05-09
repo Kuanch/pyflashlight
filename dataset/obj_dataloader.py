@@ -4,15 +4,18 @@ import torchvision.datasets
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 
+from dataset.collation import get_collate_fn
+
 
 class ObjTorchLoader(object):
     def __init__(self, dataset_name,
                  transform=None,
-                 collate_fn=None,
+                 collate_fn_name=None,
                  train_batch_size=16,
                  test_batch_size=8,
                  data_path=None):
         if dataset_name == 'coco':
+            collate_fn = get_collate_fn(collate_fn_name)
             if transform is None:
                 transform = transforms.Compose([transforms.ToTensor(),
                                                 transforms.Normalize((0.471, 0.448, 0.408),
@@ -22,6 +25,7 @@ class ObjTorchLoader(object):
                                                                   test_batch_size,
                                                                   collate_fn)
         elif hasattr(torchvision.datasets, dataset_name):
+            collate_fn = get_collate_fn(collate_fn_name)
             if transform is None:
                 # ImageNet mean and std
                 transform = transforms.Compose([transforms.ToTensor(),
