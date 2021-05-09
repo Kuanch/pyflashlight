@@ -354,7 +354,7 @@ class SSD300(nn.Module):
 
                 # A torch.uint8 (byte) tensor to keep track of which predicted boxes to suppress
                 # 1 implies suppress, 0 implies don't suppress
-                suppress = torch.zeros((n_above_min_score), dtype=torch.bool)  # (n_qualified)
+                suppress = torch.zeros((n_above_min_score), dtype=torch.bool, device=self.model_device)  # (n_qualified)
 
                 # Consider each box in order of decreasing scores
                 for box in range(class_decoded_locs.size(0)):
@@ -365,7 +365,7 @@ class SSD300(nn.Module):
                     # Suppress boxes whose overlaps (with this box) are greater than maximum overlap
                     # Find such boxes and update suppress indices
                     condition = overlap[box] > max_overlap
-                    suppress = suppress.to(self.model_device) | condition.to(self.model_device)
+                    suppress = suppress | condition
                     # The max operation retains previously suppressed boxes, like an 'OR' operation
 
                     # Don't suppress this box, even though it has an overlap of 1 with itself
@@ -511,7 +511,7 @@ class MultiBoxLoss(nn.Module):
 
         # First, find the loss for all priors
         conf_loss_all = self.cross_entropy(predicted_scores.view(-1, n_classes), true_classes.view(-1))  # (N * 8732)
-        conf_loss_all = conf_loss_all.view(batch_size, n_priors).to(tensor_device)  # (N, 8732)
+        conf_loss_all = conf_loss_all.view(batch_size, n_priors)
 
         # We already know which priors are positive
         conf_loss_pos = conf_loss_all[positive_priors]  # (sum(n_positives))
