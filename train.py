@@ -13,13 +13,15 @@ from pyhandle.net.intermediate import IntermediateNetwork
 from net.ssd import SSD300
 from net.ssd import MultiBoxLoss
 from dataset.obj_dataloader import ObjTorchLoader
+from dataset.obj_data_prefetcher import ObjDataPrefetcher
 
 
 DEVICE = None
 
 def train_for_one_step(model, criterion,
                        optimizer, loss_container,
-                       inputs, boxes, labels):
+                       inputs, b_boxes, b_labels,
+                       num_objs):
     # zero the parameter gradients
     # optimizer.zero_grad()
     for param in model.parameters():
@@ -28,10 +30,13 @@ def train_for_one_step(model, criterion,
     # forward + backward + optimize
     pred_locs, pred_cls_prob = model(inputs.to(DEVICE))
 
-    num_obj = len(boxes)
-    for n in range(num_obj):
-        boxes[n] = boxes[n].to(DEVICE)
-        labels[n] = labels[n].to(DEVICE)
+    serial = 0
+    boxes = []
+    labels = []
+    for num_obj in num_objs:
+        boxes.append(b_boxes[serial:serial + num_obj].to(DEVICE))
+        labels.append(b_labels[serial:serial + num_obj].to(DEVICE))
+        serial = num_obj
     loss = criterion(pred_locs.to(DEVICE), pred_cls_prob.to(DEVICE),
                      boxes, labels)
     loss.backward()
@@ -42,19 +47,22 @@ def train_for_one_step(model, criterion,
 
 
 def train_for_one_epoch(model, criterion, optimizer,
-                        dataset, epoch, step_per_epoch,
+                        data_fetcher, epoch, step_per_epoch,
                         writer=None):
     step = 0
     losses = [0.]
     step_to_draw_loss = 10
-    for images, boxes, labels in dataset.train_loader:
+    images, boxes, labels, num_obj_in_images = data_fetcher.next()
+    while images is not None:
         train_for_one_step(model, criterion,
                            optimizer, losses,
-                           images, boxes, labels)
+                           images, boxes, labels,
+                           num_obj_in_images)
 
         if writer is not None and step % step_to_draw_loss == 0:
             writer.add_scalar("Loss/train", losses[0], step + epoch * step_per_epoch)
 
+        images, boxes, labels, num_obj_in_images = data_fetcher.next()
         step += 1
 
 
@@ -66,9 +74,12 @@ def train_loop(training_setup, epoch):
     writer = training_setup['writer']
 
     step_per_epoch = len(dataset.train_loader)
+    train_fetcher = ObjDataPrefetcher(dataset.train_loader)
     for e in range(epoch):
         model.train()
-        train_for_one_epoch(model, criterion, optimizer, dataset, e, step_per_epoch, writer=writer)
+        train_for_one_epoch(model, criterion, optimizer,
+                            train_fetcher, e, step_per_epoch,
+                            writer=writer)
 
         # eval_result = eval_for_one_epoch(training_setup['dataset'], training_setup['model'])
 
@@ -121,4 +132,7 @@ if __name__ == '__main__':
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
     os.environ['CUDA_VISIBLE_DEVICES'] = '0'
     torch.backends.cudnn.benchmark = True
+    import time
+    st = time.time()
     train(args)
+    print(time.time() - st)
