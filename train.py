@@ -1,3 +1,6 @@
+"""
+train.py
+"""
 import os
 import argparse
 
@@ -58,42 +61,42 @@ def train_for_one_epoch(model, criterion, optimizer,
 def train_loop(training_setup, epoch):
     model = training_setup['model']
     criterion = training_setup['criterion']
-    optim = training_setup['optimizer']
+    optimizer = training_setup['optimizer']
     dataset = training_setup['dataset']
     writer = training_setup['writer']
 
     step_per_epoch = len(dataset.train_loader)
     for e in range(epoch):
         model.train()
-        train_for_one_epoch(model, criterion, optim, dataset, e, step_per_epoch, writer=writer)
+        train_for_one_epoch(model, criterion, optimizer, dataset, e, step_per_epoch, writer=writer)
 
         # eval_result = eval_for_one_epoch(training_setup['dataset'], training_setup['model'])
 
 
-def training_setup(args):
-    training_setup = {}
+def setting_up(args):
+    setup = {}
     backbone = IntermediateNetwork('resnet50', [5, 6]).to(DEVICE)
-    training_setup['model'] = SSD300(backbone, args.num_classes).to(DEVICE)
-    training_setup['preprocessor'] = transforms.Compose([transforms.Resize((300, 300)),
-                                                         transforms.ToTensor(),
-                                                         transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                                                              std=[0.229, 0.224, 0.225])])
-    training_setup['dataset'] = ObjTorchLoader(args.dataset_name,
-                                               transform=training_setup['preprocessor'],
-                                               collate_fn_name=args.dataset_name,
-                                               train_batch_size=args.train_batch_size,
-                                               test_batch_size=args.test_batch_size)
-    prior_boxes = training_setup['model'].priors_cxcy
-    training_setup['criterion'] = MultiBoxLoss(prior_boxes)
-    training_setup['optimizer'] = optim.SGD(training_setup['model'].parameters(),
-                                            lr=args.lr)
-    training_setup['writer'] = None
-    training_setup['save_model_path'] = args.save_model_path
+    setup['model'] = SSD300(backbone, args.num_classes).to(DEVICE)
+    setup['preprocessor'] = transforms.Compose([transforms.Resize((300, 300)),
+                                                transforms.ToTensor(),
+                                                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                                                     std=[0.229, 0.224, 0.225])])
+    setup['dataset'] = ObjTorchLoader(args.dataset_name,
+                                      transform=setup['preprocessor'],
+                                      collate_fn_name=args.dataset_name,
+                                      train_batch_size=args.train_batch_size,
+                                      test_batch_size=args.test_batch_size)
+    prior_boxes = setup['model'].priors_cxcy
+    setup['criterion'] = MultiBoxLoss(prior_boxes)
+    setup['optimizer'] = optim.SGD(setup['model'].parameters(),
+                                   lr=args.lr)
+    setup['writer'] = None
+    setup['save_model_path'] = args.save_model_path
 
-    return training_setup
+    return setup
 
 
-def get_argments():
+def get_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name', default='resnet18')
     parser.add_argument('--dataset_name', default='coco')
@@ -108,18 +111,14 @@ def get_argments():
     return parser.parse_args()
 
 
-def train(args):
-    setup = training_setup(args)
-    train_loop(setup, epoch=args.training_epoch)
+def train(arguments):
+    setup = setting_up(arguments)
+    train_loop(setup, epoch=arguments.training_epoch)
 
 
 if __name__ == '__main__':
-    args = get_argments()
+    args = get_arguments()
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
     os.environ['CUDA_VISIBLE_DEVICES'] = '0'
     torch.backends.cudnn.benchmark = True
-    import time
-    st = time.time()
     train(args)
-    print(time.time() - st)
-
