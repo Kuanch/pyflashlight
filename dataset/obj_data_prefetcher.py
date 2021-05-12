@@ -15,12 +15,14 @@ class ObjDataPrefetcher(object):
 
     def preload(self):
         try:
-            self.next_input, self.next_box, self.next_target = next(self.loader)
-            self.next_box = torch.as_tensor(self.next_box, device='cuda')
+            self.next_input, self.next_box, \
+                self.next_target, self.num_obj_in_images \
+                    = next(self.loader)
         except StopIteration:
             self.next_input = None
             self.next_box = None
             self.next_target = None
+            self.num_obj_in_images = None
             return
         # if record_stream() doesn't work, another option is to make sure device inputs are created
         # on the main stream.
@@ -33,6 +35,7 @@ class ObjDataPrefetcher(object):
             self.next_input = self.next_input.cuda(non_blocking=True)
             self.next_box = self.next_box.cuda(non_blocking=True)
             self.next_target = self.next_target.cuda(non_blocking=True)
+            self.num_obj_in_images = self.num_obj_in_images.cuda(non_blocking=True)
             # more code for the alternative if record_stream() doesn't work:
             # copy_ will record the use of the pinned source tensor in this side stream.
             # self.next_input_gpu.copy_(self.next_input, non_blocking=True)
@@ -52,11 +55,14 @@ class ObjDataPrefetcher(object):
         image = self.next_input
         box = self.next_box
         target = self.next_target
+        num_obj_in_images = self.num_obj_in_images
         if image is not None:
             image.record_stream(torch.cuda.current_stream())
         if box is not None:
             box.record_stream(torch.cuda.current_stream())
         if target is not None:
             target.record_stream(torch.cuda.current_stream())
+        if num_obj_in_images is not None:
+            num_obj_in_images.record_stream(torch.cuda.current_stream())
         self.preload()
-        return image, box, target
+        return image, box, target, num_obj_in_images
